@@ -10,6 +10,20 @@ struct produto{
 	struct produto *proximo;
 };
 
+void printLista(){
+	printf("[1] Cadastrar Venda\n");
+	printf("[2] Listar vendas por data\n");
+	printf("[3] Alterar estoque e preco de produto\n");
+	printf("[4] Remover produto do estoque\n");
+	printf("[5] Sair\n");
+}
+
+void escolhaUsuario(int *escolha){
+	scanf("%d", escolha);
+	if(*escolha <= 0 || *escolha > 5){
+		printf("Escolha inválida, tente novamente.\n");
+	}
+}
 produto* criarProduto(int codigo, const char* nome, float preco, int estoque){
 	produto *novoProduto = (produto*) malloc(sizeof(produto));
 
@@ -62,18 +76,48 @@ void liberarLista(produto *cabeca) {
 }
 
 int main(){
+	int escolha;
 	int qtdProdutos;
 	char nomeArquivo[100];
+	produto *produtos = NULL;
 
+	printf("Informe o nome do arquivo: ");
 	fgets(nomeArquivo, sizeof(nomeArquivo), stdin);
 	nomeArquivo[strcspn(nomeArquivo, "\n")] = 0;
 
     FILE *arquivo;
-
 	arquivo = fopen(nomeArquivo, "r");
 
-	fscanf(arquivo, "%d", &qtdProdutos);
+	if (arquivo == NULL) {
+        perror("Erro ao abrir o arquivo");
+        return EXIT_FAILURE;
+    } else {
+		printf("Arquivo lido com sucesso. Iniciando programa\n");
+	}
 
-	produto produtos[qtdProdutos];
+	if (fscanf(arquivo, "%d", &qtdProdutos) != 1) {
+        fprintf(stderr, "Erro ao ler a quantidade de produtos do arquivo.\n");
+        fclose(arquivo);
+        return EXIT_FAILURE;
+    }
 
+	int codigoProduto;
+	char nomeProduto[100];
+	float precoProduto;
+	int estoqueProduto;
+	for(int i = 0; i < qtdProdutos; i++){
+		fscanf(arquivo, "%d", &codigoProduto);
+		fscanf(arquivo, " %[^\n]", nomeProduto);
+		fscanf(arquivo, "%f", &precoProduto);
+		fscanf(arquivo, "%d", &estoqueProduto);
+
+		produto *novoProduto = criarProduto(codigoProduto, nomeProduto, precoProduto, estoqueProduto);
+		produtos = inserirNoFinal(produtos, novoProduto);
+	}
+
+	liberarLista(produtos);
+	produtos = NULL;
+	printLista();
+	escolhaUsuario(&escolha);
+	return 0;
 }	
