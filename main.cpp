@@ -1,6 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <locale.h>
+
+#if defined(_WIN32) || defined(_WIN64)
+    #include <windows.h>
+#endif
+
+void configurar_ambiente() {
+    #if defined(_WIN32) || defined(_WIN64)
+        SetConsoleOutputCP(65001);
+        SetConsoleCP(65001);
+    #else
+        setlocale(LC_ALL, "");
+    #endif
+}
 
 struct produto{
 	int codigo;
@@ -8,6 +22,14 @@ struct produto{
 	float preco;
 	int estoque;
 	struct produto *proximo;
+};
+
+struct itemVenda{
+	int codigoProduto;
+	char nomeProduto[100];
+	int quantidade;
+	float precoUnitario;
+	struct itemVenda *proximo;
 };
 
 void printLista(){
@@ -18,12 +40,24 @@ void printLista(){
 	printf("[5] Sair\n");
 }
 
-void escolhaUsuario(int *escolha){
-	scanf("%d", escolha);
-	if(*escolha <= 0 || *escolha > 5){
-		printf("Escolha inválida, tente novamente.\n");
+int escolhaUsuario(){
+	int escolha;
+	scanf("%d", &escolha);
+	while(escolha <= 0 || escolha > 5){
+		printf("Escolha invalida, tente novamente.\n");
+		scanf("%d", &escolha);
 	}
+	return escolha;
 }
+
+// void cadastrarVenda(produto *cabeca){
+// } //WIP
+
+void limparBufferTeclado() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
 produto* criarProduto(int codigo, const char* nome, float preco, int estoque){
 	produto *novoProduto = (produto*) malloc(sizeof(produto));
 
@@ -47,17 +81,50 @@ produto* inserirNoFinal(produto *cabeca, produto *novoProduto){
 	return cabeca;
 }
 
+produto* buscaPorCodigo(produto *cabeca, int codigoBusca){
+	produto *atual = cabeca;
+	while(atual != NULL){
+		if(atual -> codigo == codigoBusca){
+			return atual;
+		}
+		atual = atual -> proximo;
+	}
+	return NULL;
+}
+
+void exibirProdutos(produto *cabeca){
+	SetConsoleOutputCP(65001);
+	produto *atual = cabeca;
+    int contador = 0;
+    const int itensPorPagina = 10;
+
+	printf("\n -- Lista de produtos disponiveis -- \n");
+	while(atual != NULL){
+		if(atual -> estoque > 0){
+			printf("Codigo: %-5d | Nome: %-30s | PreÃ§o: R$ %-7.2f\n", atual->codigo, atual->nome, atual->preco);
+		}
+		contador++;
+		atual = atual -> proximo;
+
+		if(contador > 0 && contador % itensPorPagina == 0){
+			printf("\n -- Pressione ENTER para exibir mais ou digite 0 para finalizar --\n");
+			char ch = getchar();
+			if(ch == '0'){
+				limparBufferTeclado();
+				break;
+			}	
+		}
+	}
+	printf("----------------------------------------\n");
+}
+
 void exibirLista(produto *cabeca){
     produto *atual = cabeca;
-    if (atual == NULL) {
-        printf("Lista de produtos vazia.\n");
-        return;
-    }
+
     while (atual != NULL) {
         printf("Codigo: %d\n", atual->codigo);
         printf("Nome: %s\n", atual->nome);
         printf("Preco: %.2f\n", atual->preco);
-        printf("Estoque: %d\n", atual->estoque);
         if (atual->proximo != NULL) {
             printf("\n");
         }
@@ -76,7 +143,7 @@ void liberarLista(produto *cabeca) {
 }
 
 int main(){
-	int escolha;
+	configurar_ambiente();
 	int qtdProdutos;
 	char nomeArquivo[100];
 	produto *produtos = NULL;
@@ -106,18 +173,48 @@ int main(){
 	float precoProduto;
 	int estoqueProduto;
 	for(int i = 0; i < qtdProdutos; i++){
-		fscanf(arquivo, "%d", &codigoProduto);
-		fscanf(arquivo, " %[^\n]", nomeProduto);
-		fscanf(arquivo, "%f", &precoProduto);
-		fscanf(arquivo, "%d", &estoqueProduto);
+    if (fscanf(arquivo, "%d", &codigoProduto) != 1) {
+        fprintf(stderr, "ERRO: Falha ao ler o codigo do produto #%d. Arquivo mal formatado ou incompleto.\n", i + 1);
+        break;
+    }
 
+    if (fscanf(arquivo, " %[^\n]", nomeProduto) != 1) {
+        fprintf(stderr, "ERRO: Falha ao ler o nome do produto #%d.\n", i + 1);
+        break;
+    }
+
+    if (fscanf(arquivo, "%f", &precoProduto) != 1) {
+        fprintf(stderr, "ERRO: Falha ao ler o preco do produto #%d.\n", i + 1);
+        break;
+    }
+    
+    if (fscanf(arquivo, "%d", &estoqueProduto) != 1) {
+        fprintf(stderr, "ERRO: Falha ao ler o estoque do produto #%d.\n", i + 1);
+        break;
+    }
+	
 		produto *novoProduto = criarProduto(codigoProduto, nomeProduto, precoProduto, estoqueProduto);
 		produtos = inserirNoFinal(produtos, novoProduto);
 	}
 
-	liberarLista(produtos);
-	produtos = NULL;
 	printLista();
-	escolhaUsuario(&escolha);
+	int escolha = escolhaUsuario();
+	switch(escolha){
+		case 1:
+		exibirProdutos(produtos);
+		break;
+		
+		case 2:
+		break;
+		
+		case 3:
+		break;
+		
+		case 4:
+		break;
+
+		case 5:
+		break;
+	}
 	return 0;
 }	
