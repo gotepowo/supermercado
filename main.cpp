@@ -2,11 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <locale.h>
+#include <time.h>
+#include <stdbool.h>
 
 #if defined(_WIN32) || defined(_WIN64)
     #include <windows.h>
 #endif
-
+// configura ambiente para windows
 void configurar_ambiente() {
     #if defined(_WIN32) || defined(_WIN64)
         SetConsoleOutputCP(65001);
@@ -30,6 +32,18 @@ struct itemVenda{
 	int quantidade;
 	float precoUnitario;
 	struct itemVenda *proximo;
+};
+
+struct venda{
+	char data[11];
+	char hora[9];
+	char cpfCliente[14];
+	itemVenda *itens;
+};
+
+struct noVenda{
+	venda dadosVenda;
+	noVenda *proximo;
 };
 
 void printLista(){
@@ -89,6 +103,61 @@ produto* buscaPorCodigo(produto *cabeca, int codigoBusca){
 	return NULL;
 }
 
+void dividirListaProduto(struct produto *fonte, struct produto **frente, struct produto **tras) {
+    struct produto *rapido;
+    struct produto *devagar;
+    devagar = fonte;
+    rapido = fonte->proximo;
+
+    while (rapido != NULL) {
+        rapido = rapido->proximo;
+        if (rapido != NULL) {
+            devagar = devagar->proximo;
+            rapido = rapido->proximo;
+        }
+    }
+
+    *frente = fonte;
+    *tras = devagar->proximo;
+    devagar->proximo = NULL;
+}
+
+// Mescla duas listas ordenadas por nome
+struct produto* mesclarOrdenadoPorNome(struct produto *a, struct produto *b) {
+    struct produto *resultado = NULL;
+
+    if (a == NULL) return b;
+    else if (b == NULL) return a;
+
+    if (strcmp(a->nome, b->nome) <= 0) {
+        resultado = a;
+        resultado->proximo = mesclarOrdenadoPorNome(a->proximo, b);
+    } else {
+        resultado = b;
+        resultado->proximo = mesclarOrdenadoPorNome(a, b->proximo);
+    }
+
+    return resultado;
+}
+
+// Função principal para aplicar mergesort na lista de produtos
+void mergeSortProdutos(struct produto **cabecaRef) {
+    struct produto *cabeca = *cabecaRef;
+    struct produto *a;
+    struct produto *b;
+
+    if ((cabeca == NULL) || (cabeca->proximo == NULL)) {
+        return; // Lista vazia ou com um elemento está ordenada
+    }
+
+    dividirListaProduto(cabeca, &a, &b);
+
+    mergeSortProdutos(&a);
+    mergeSortProdutos(&b);
+
+    *cabecaRef = mesclarOrdenadoPorNome(a, b);
+}
+
 void exibirProdutos(produto *cabeca){
 	produto *atual = cabeca;
     int contador = 0;
@@ -141,14 +210,34 @@ void liberarLista(produto *cabeca) {
     }
 }
 
-void cadastrarVenda(produto *listaDeProdutos){
+void cadastrarVenda(produto *listaDeProdutos, noVenda **listaDeVendas){
 	itemVenda *carrinho = NULL;
 	itemVenda *novoItem, *itemAtual;
 	produto *produtoAtual;
 	char continuar;
 	float totalVenda = 0.0;
+	bool primeiraCompra = true;
+    char cpfCliente[13];
+
 
 	do{
+		while(primeiraCompra){
+			printf("Informe o seu CPF antes de começar a comprar: ");
+			limparBufferTeclado();
+			fgets(cpfCliente, sizeof(cpfCliente), stdin);
+
+			printf("CPF informado: %s\n", cpfCliente);
+			printf("Esse é o CPF correto? (S/N)\n");
+			limparBufferTeclado();
+			char resposta;
+			scanf(" %c", &resposta);
+			if(resposta != 's' || resposta != 'S'){
+				primeiraCompra = false;
+			} else {
+				continue;
+			}
+		}
+
 		exibirProdutos(listaDeProdutos);
 
 		int codigoBusca, quantidadeDesejada;
@@ -203,17 +292,44 @@ void cadastrarVenda(produto *listaDeProdutos){
 		printf("\nDeseja adicionar outro produto ao carrinho? (S/N)\n");
 		limparBufferTeclado();
 		continuar = getchar();
+		if(continuar == 'S' || continuar == 's'){
+			primeiraCompra = false;
+		}
 	} while(continuar == 'S' || continuar == 's');
+	
+	printf("---------------Venda Finalizada---------------\n");
 
-	printf("\n-----Finalizando Venda-----\n");
 	if(carrinho == NULL){
-		printf("Carrinho vazio, nenhum item contabilizado na venda.\n");
+		printf("Carrinho vazio, nenhuma venda contabilizada\n");
 	} else {
+		noVenda *novaVendaNode = (noVenda*) malloc(sizeof(noVenda));
+		time_t t = time(NULL);
+		struct tm *tm = localtime(&t);
+
+		strftime(novaVendaNode->dadosVenda.data, sizeof(novaVendaNode->dadosVenda.data), "%Y/%m/%d", tm);
+        strftime(novaVendaNode->dadosVenda.hora, sizeof(novaVendaNode->dadosVenda.hora), "%H:%M:%S", tm);
+        strcpy(novaVendaNode->dadosVenda.cpfCliente, cpfCliente);
+        novaVendaNode->dadosVenda.itens = carrinho;
+        novaVendaNode->proximo = NULL;
+
+		if (*listaDeVendas == NULL) {
+            *listaDeVendas = novaVendaNode;
+        } else {
+            noVenda *vendaAtual = *listaDeVendas;
+            while (vendaAtual->proximo != NULL) {
+                vendaAtual = vendaAtual->proximo;
+            }
+            vendaAtual->proximo = novaVendaNode;
+        }
+
 		itemAtual = carrinho;
+		printf("Venda registrada com sucesso. Detalhes: \n");
+        printf("CPF do cliente: %s\n", cpfCliente);
+		printf("Data: %s | Hora: %s\n", novaVendaNode -> dadosVenda.data, novaVendaNode -> dadosVenda.hora);
 		printf("Detalhes da venda:\n");
 		while(itemAtual != NULL){
 			float subtotal = itemAtual -> quantidade * itemAtual -> precoUnitario;
-			printf("->%d %s a %.2f reais cada, total %.2f", itemAtual ->quantidade, itemAtual -> nomeProduto, itemAtual -> precoUnitario, subtotal);
+			printf("->%d %s a %.2f reais cada, total %.2f\n", itemAtual ->quantidade, itemAtual -> nomeProduto, itemAtual -> precoUnitario, subtotal);
 			totalVenda += subtotal;
 			
 			produtoAtual = buscaPorCodigo(listaDeProdutos, itemAtual -> codigoProduto);
@@ -224,9 +340,70 @@ void cadastrarVenda(produto *listaDeProdutos){
 			free(itemAtual);
 			itemAtual = proximoItem;
 		}
-		printf("\nVALOR TOTAL DA VENDA: R$%.2f\n", totalVenda);
+		printf("\nVALOR TOTAL DA VENDA: R$%.2f\n\n", totalVenda);
 	}
-	printf("------------------------------------\n");
+}
+
+void salvarVendasDoDia(noVenda *listaDeVendas) {
+    time_t t = time(NULL);
+    struct tm *tm_info = localtime(&t);
+
+    char dataDeHoje[11];
+    strftime(dataDeHoje, sizeof(dataDeHoje), "%Y/%m/%d", tm_info);
+
+    char nomeArquivo[50];
+    strftime(nomeArquivo, sizeof(nomeArquivo), "vendas%d%m%Y.txt", tm_info);
+
+    FILE *arquivo = fopen(nomeArquivo, "w");
+
+    if (arquivo == NULL) {
+        perror("Erro ao criar o arquivo de relatorio");
+        return;
+    }
+
+    printf("Salvando vendas do dia %s no arquivo %s...\n", dataDeHoje, nomeArquivo);
+
+    noVenda *vendaAtual = listaDeVendas;
+    bool algumaVendaSalva = false;
+    float totalVendasDoDia = 0.0;
+
+    while (vendaAtual != NULL) {
+        if (strcmp(vendaAtual->dadosVenda.data, dataDeHoje) == 0) {
+            algumaVendaSalva = true;
+            float totalVendaIndividual = 0.0;
+
+            fprintf(arquivo, "%s\n", vendaAtual->dadosVenda.data);
+            fprintf(arquivo, "%s\n", vendaAtual->dadosVenda.hora);
+            fprintf(arquivo, "%s\n", vendaAtual->dadosVenda.cpfCliente);
+
+            itemVenda *item = vendaAtual->dadosVenda.itens;
+            while(item != NULL) {
+                fprintf(arquivo, "%d %s %d %.2f\n",
+                    item->codigoProduto,
+                    item->nomeProduto,
+                    item->quantidade,
+                    item->precoUnitario
+                );
+                totalVendaIndividual += item->quantidade * item->precoUnitario;
+                item = item->proximo;
+            }
+
+            fprintf(arquivo, "%.2f\n\n", totalVendaIndividual);
+            totalVendasDoDia += totalVendaIndividual;
+        }
+        vendaAtual = vendaAtual->proximo;
+    }
+
+    if (algumaVendaSalva) {
+        printf("Relatorio de vendas de hoje salvo com sucesso!\n");
+    } else {
+        printf("Nenhuma venda encontrada para o dia de hoje.\n");
+        fclose(arquivo);
+        remove(nomeArquivo);
+        return;
+    }
+
+    fclose(arquivo);
 }
 
 int main(){
@@ -235,8 +412,11 @@ int main(){
 	int qtdProdutos;
 	char nomeArquivo[100];
 	produto *produtos = NULL;
+	noVenda *listaDeVendas = NULL;
+
 
 	printf("Informe o nome do arquivo: ");
+        
 	fgets(nomeArquivo, sizeof(nomeArquivo), stdin);
 	nomeArquivo[strcspn(nomeArquivo, "\n")] = 0;
 
@@ -285,12 +465,16 @@ int main(){
 		produtos = inserirNoFinal(produtos, novoProduto);
 	}
 
+    fclose(arquivo);
+       
+    mergeSortProdutos(&produtos);
+
 	do{
 		printLista();
 		int escolha = escolhaUsuario();
 		switch(escolha){
 			case 1:
-			cadastrarVenda(produtos);
+			cadastrarVenda(produtos, &listaDeVendas);
 			break;
 			
 			case 2:
@@ -303,6 +487,7 @@ int main(){
 			break;
 
 			case 5:
+			salvarVendasDoDia(listaDeVendas);
 			printf("Programa encerrado. Finalizando CMD.\n");
 			continuar = false;
 			break;
