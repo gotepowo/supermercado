@@ -119,30 +119,39 @@ void mergeSortProdutos(struct produto **cabecaRef) {
 }
 
 void exibirProdutos(produto *cabeca){
-	produto *atual = cabeca;
+    produto *atual = cabeca;
     int contador = 0;
     const int itensPorPagina = 10;
 
-	printf("\n -- Lista de produtos disponiveis -- \n");
-	while(atual != NULL){
-		if(atual -> estoque > 0 && !(atual -> deletado)){
-			printf("Codigo: %-5d | Nome: %-30s | Preço: R$ %-7.2f\n", atual->codigo, atual->nome, atual->preco);
-		}
-		contador++;
-		atual = atual -> proximo;
+    printf("\n -- Lista de produtos disponiveis -- \n");
+    while(atual != NULL){
+        if(atual -> estoque > 0 && !(atual -> deletado)){
+            printf("Codigo: %-5d | Nome: %-30s | Preço: R$ %-7.2f\n", atual->codigo, atual->nome, atual->preco);
+            contador++;
 
-		if(contador > 0 && contador % itensPorPagina == 0){
-			printf("\n -- Pressione 1 para exibir mais ou digite 0 para finalizar --\n");
-			limparBufferTeclado();
-			char ch = getchar();
-			if(ch == '0'){
+            if(contador > 0 && contador % itensPorPagina == 0){
+                printf("\n -- Pressione 1 para exibir mais ou digite 0 para finalizar --\n");
+                char buffer[100];
+                char caractere;
 				limparBufferTeclado();
-				break;
-			} else if(ch == '1'){
-				contador = 0;
-			}
-		}
-	}
+                while(true){
+                    fgets(buffer, sizeof(buffer), stdin);
+                    if (strlen(buffer) == 2 && buffer[1] == '\n') {
+                        caractere = buffer[0];
+                        if(caractere == '1' || caractere == '0'){
+                            break;
+                        }
+                    }
+                    printf("Por favor insira uma opção válida (0 ou 1): ");
+                }
+                
+                if(caractere == '0'){
+                    return;
+                }
+            }
+        }
+        atual = atual -> proximo;
+    }
 }
 
 void liberarLista(produto *cabeca) {
@@ -391,19 +400,22 @@ void removerProduto(produto *produtos, int *n){
 void alterarEstoque(produto *produtos){
 	int codigo, estoque;
 	float preco;
-
+	exibirLista(produtos);
 	printf("Informe o código do produto a ser alterado: ");
 	scanf("%d", &codigo);
 
 	produto *produtoAtual = buscaPorCodigo(produtos, codigo);
     printf("Produto selecionado: %s\n", produtoAtual -> nome);
+
 	printf("Informe o novo preço do produto: ");
 	scanf("%f", &preco);
+	produtoAtual -> preco = preco;
+	printf("\nNovo preço do produto: R$%.2f\n\n", produtoAtual->preco);
+
 	printf("Informe o estoque a adicionar ao produto: ");
 	scanf("%d", &estoque);
-
-	produtoAtual -> preco = preco;
 	produtoAtual -> estoque += estoque;
+	printf("\nNovo estoque do produto: %d\n\n", produtoAtual ->estoque);
 }
 
 void buscaPorData(){
@@ -488,10 +500,48 @@ void escolhaUsuario(produto *produtos, noVenda **listaDeVendas, int *qtdProdutos
 			case 5:
 			if(*listaDeVendas != NULL){
                 salvarVendasDoDia(*listaDeVendas);
-            }
+            } else {
+				printf("Nenhuma venda realizada no dia de hoje. Arquivo de vendas não foi alterado.\n");
+			}
             escreverArquivo(produtos, *qtdProdutos, nomeArquivo);
 			printf("Programa encerrado. Finalizando CMD.\n");
 			*continuar = false;
 			break;
 		}
+}
+
+void exibirLista(produto *cabeca){
+    produto *atual = cabeca;
+    int contador = 0;
+    const int itensPorPagina = 10;
+
+    printf("\n -- Lista de produtos disponiveis -- \n");
+    while(atual != NULL){
+        if(!(atual -> deletado)){
+            printf("Codigo: %-5d | Nome: %-30s | Preço: R$ %-7.2f | Estoque: %d\n", atual->codigo, atual->nome, atual->preco, atual->estoque);
+            contador++;
+
+            if(contador > 0 && contador % itensPorPagina == 0){
+                printf("\n -- Pressione 1 para exibir mais ou digite 0 para finalizar --\n");
+                char buffer[100];
+                char caractere;
+				limparBufferTeclado();
+                while(true){
+                    fgets(buffer, sizeof(buffer), stdin);
+                    if (strlen(buffer) == 2 && buffer[1] == '\n') {
+                        caractere = buffer[0];
+                        if(caractere == '1' || caractere == '0'){
+                            break;
+                        }
+                    }
+                    printf("Por favor insira uma opção válida (0 ou 1): ");
+                }
+                
+                if(caractere == '0'){
+                    return;
+                }
+            }
+        }
+        atual = atual -> proximo;
+    }
 }

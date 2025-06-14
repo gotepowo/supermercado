@@ -54,3 +54,4 @@ void removerProduto(produto *produtos, int *n);
 void alterarEstoque(produto *produtos);
 void buscaPorData();
 void escolhaUsuario(produto *produtos, noVenda **listaDeVendas, int *qtdProdutos, char nomeArquivo[100], bool *continuar);
+void exibirLista(produto *cabeca);
